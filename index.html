@@ -123,6 +123,10 @@
     .status-inactive{display:inline-block;padding:3px 8px;border-radius:999px;background:#f1f5f9;color:#64748b;font-size:11px}
     .staff-actions{display:flex;gap:6px;flex-wrap:wrap}
 
+
+    .delete-report-btn{border:1px solid #fecaca;background:#fff;color:#b91c1c;border-radius:8px;padding:6px 10px;font-size:12px}
+    .delete-report-btn:hover{background:#fef2f2}
+
     @media(max-width:950px){.score-breakdown{grid-template-columns:repeat(2,1fr)}.config-grid{grid-template-columns:repeat(2,1fr)}}
     @media(max-width:620px){.score-breakdown,.config-grid{grid-template-columns:1fr}}
 
@@ -1569,14 +1573,23 @@ async function refreshEmployeeDetail() {
         <td>${r.bad_review_count}</td>
         <td>${r.complaint_count}</td>
         <td>${r.work_note || "-"}</td>
-        <td>${canEmployeeEditReport(r) || currentEmployee.role === "admin"
-          ? `<button class="action-btn" data-detail-edit="${r.id}">修改</button>`
-          : `<span class="locked-badge">已锁定</span>`}</td>
+        <td>
+          ${canEmployeeEditReport(r) || currentEmployee.role === "admin"
+            ? `<button class="action-btn" data-detail-edit="${r.id}">修改</button>`
+            : `<span class="locked-badge">已锁定</span>`}
+          ${currentEmployee.role === "admin"
+            ? `<button class="delete-report-btn" data-detail-delete="${r.id}" style="margin-left:6px">删除</button>`
+            : ""}
+        </td>
       </tr>`;
   }).join("") : `<tr><td colspan="12" class="muted">这个月还没有填报数据</td></tr>`;
 
   document.querySelectorAll("[data-detail-edit]").forEach(btn=>{
     btn.addEventListener("click", ()=>openEditReport(btn.dataset.detailEdit));
+  });
+
+  document.querySelectorAll("[data-detail-delete]").forEach(btn=>{
+    btn.addEventListener("click", ()=>deleteReport(btn.dataset.detailDelete));
   });
 }
 
@@ -1797,6 +1810,57 @@ async function saveEditedReport() {
   if (selectedDetailEmployeeId) await refreshEmployeeDetail();
 }
 
+
+async function deleteReport(reportId) {
+  if (!currentEmployee || currentEmployee.role !== "admin") {
+    alert("只有管理员可以删除历史填报记录。");
+    return;
+  }
+
+  const { data: report, error: readError } = await sb
+    .from("daily_reports")
+    .select("*")
+    .eq("id", reportId)
+    .single();
+
+  if (readError || !report) {
+    alert("读取记录失败：" + (readError?.message || ""));
+    return;
+  }
+
+  const employee = employeeName(report.employee_id);
+
+  const ok = confirm(
+    `确定删除这条历史填报吗？\n\n员工：${employee}\n日期：${report.report_date}\n销售额：${money(report.sales_amount)}\n\n删除后无法在系统内恢复。`
+  );
+  if (!ok) return;
+
+  const { error } = await sb
+    .from("daily_reports")
+    .delete()
+    .eq("id", reportId);
+
+  if (error) {
+    alert("删除失败：" + error.message);
+    return;
+  }
+
+  alert("删除成功。");
+
+  await Promise.all([
+    loadHistory(),
+    loadDashboard()
+  ]);
+
+  if (selectedDetailEmployeeId) {
+    try { await refreshEmployeeDetail(); } catch (_) {}
+  }
+
+  if (!$("performancePage").classList.contains("hidden")) {
+    try { await loadPerformancePage(); } catch (_) {}
+  }
+}
+
 async function loadHistory() {
   if (!employeesCache.length) await loadEmployees();
 
@@ -1827,14 +1891,23 @@ async function loadHistory() {
         <td>${editable || currentEmployee.role === "admin"
           ? `<span class="editable-badge">${statusText}</span>`
           : `<span class="locked-badge">${statusText}</span>`}</td>
-        <td>${editable || currentEmployee.role === "admin"
-          ? `<button class="action-btn" data-edit-report="${r.id}">修改</button>`
-          : "-"}</td>
+        <td>
+          ${editable || currentEmployee.role === "admin"
+            ? `<button class="action-btn" data-edit-report="${r.id}">修改</button>`
+            : "-"}
+          ${currentEmployee.role === "admin"
+            ? `<button class="delete-report-btn" data-delete-report="${r.id}" style="margin-left:6px">删除</button>`
+            : ""}
+        </td>
       </tr>`;
   }).join("") : `<tr><td colspan="10" class="muted">暂无历史记录</td></tr>`;
 
   document.querySelectorAll("[data-edit-report]").forEach(btn=>{
     btn.addEventListener("click", ()=>openEditReport(btn.dataset.editReport));
+  });
+
+  document.querySelectorAll("[data-delete-report]").forEach(btn=>{
+    btn.addEventListener("click", ()=>deleteReport(btn.dataset.deleteReport));
   });
 }
 
