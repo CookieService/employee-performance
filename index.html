@@ -1296,9 +1296,10 @@ async function loadEmployees() {
   const { data, error } = await sb.from("employees").select("*").order("created_at");
   if (error) throw error;
   employeesCache = data || [];
+  const visibleEmployees = employeesCache.filter(e => !e.deleted_at);
 
   const tbody = $("staffTable");
-  tbody.innerHTML = employeesCache.length ? employeesCache.map(e => `
+  tbody.innerHTML = visibleEmployees.length ? visibleEmployees.map(e => `
     <tr class="clickable-row" data-staff-id="${e.id}">
       <td><b>${e.name}</b></td>
       <td>${e.employee_no || "-"}</td>
@@ -1327,6 +1328,10 @@ async function loadEmployees() {
                <button class="action-btn" data-reset-password="${e.id}">
                  重置密码
                </button>
+
+               <button class="danger-btn" data-delete-account="${e.id}">
+                 删除账号
+               </button>
              </div>`
           : "-"}
       </td>
@@ -1340,7 +1345,8 @@ async function loadEmployees() {
         if (
           ev.target.closest("[data-role-toggle]") ||
           ev.target.closest("[data-status-toggle]") ||
-          ev.target.closest("[data-reset-password]")
+          ev.target.closest("[data-reset-password]") ||
+          ev.target.closest("[data-delete-account]")
         ) return;
 
         try {
@@ -1376,6 +1382,13 @@ async function loadEmployees() {
       btn.addEventListener("click", (ev)=>{
         ev.stopPropagation();
         openResetPassword(btn.dataset.resetPassword);
+      });
+    });
+
+    document.querySelectorAll("[data-delete-account]").forEach(btn=>{
+      btn.addEventListener("click", async(ev)=>{
+        ev.stopPropagation();
+        await deleteEmployeeAccount(btn.dataset.deleteAccount);
       });
     });
   }
@@ -3492,6 +3505,34 @@ async function setEmployeeStatus(employeeId, nextStatus) {
     await loadEmployees();
   } catch (e) {
     alert(actionName + "失败：" + (e?.message || e));
+  }
+}
+
+async function deleteEmployeeAccount(employeeId) {
+  const employee = employeeById(employeeId);
+  if (!employee) return;
+
+  const confirmed = confirm(
+    `确定删除 ${employee.name} 的登录账号吗？\n\n` +
+    "删除后该账号不能再登录，员工会从员工列表隐藏；历史填报、绩效和工资记录将保留。此操作不可恢复。"
+  );
+  if (!confirmed) return;
+
+  const finalConfirmed = confirm(
+    `最后确认：永久删除 ${employee.name} 的登录资格？`
+  );
+  if (!finalConfirmed) return;
+
+  try {
+    const data = await invokeManageEmployee({
+      action: "delete_account",
+      employee_id: employeeId
+    });
+
+    alert(data.message || "账号已删除，历史业务记录已保留。");
+    await loadEmployees();
+  } catch (e) {
+    alert("删除失败：" + (e?.message || e));
   }
 }
 
