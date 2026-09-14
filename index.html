@@ -6,6 +6,7 @@
   <title>员工绩效管理系统</title>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
+  <script src="js/salary-policy.js"></script>
   <style>
     *{box-sizing:border-box}
     body{margin:0;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Microsoft YaHei",Arial,sans-serif;background:#f5f7fb;color:#111827}
@@ -263,12 +264,18 @@
     .salary-line:last-child{border-bottom:0}
     .salary-template-note{padding:10px 12px;border-radius:10px;background:#f8fafc;color:#64748b;font-size:12px;margin-bottom:12px}
     .salary-warning{background:#fff7ed;color:#c2410c;border:1px solid #fed7aa}
+    .salary-policy-fields{grid-column:1/-1;border:1px solid #e2e8f0;border-radius:12px;padding:14px;background:#f8fafc}
+    .salary-policy-fields h4{margin:0 0 4px;font-size:14px;color:#0f172a}
+    .salary-policy-fields .muted{margin-bottom:10px}
+    .salary-policy-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:12px}
+    .salary-policy-grid label{margin:0}
+    .salary-form-grid input[readonly]{background:#f8fafc;color:#475569;cursor:not-allowed}
     .salary-actions{display:flex;gap:10px;flex-wrap:wrap;margin-top:14px}
     .salary-actions button{margin:0}
     .salary-history-table td,.salary-history-table th{white-space:nowrap}
     .salary-status{display:inline-block;padding:3px 8px;border-radius:999px;font-size:11px;background:#ecfdf5;color:#047857}
     @media(max-width:1050px){.salary-kpis{grid-template-columns:repeat(3,1fr)}.salary-layout{grid-template-columns:1fr}.salary-result{position:static}}
-    @media(max-width:700px){.salary-kpis{grid-template-columns:repeat(2,1fr)}.salary-form-grid{grid-template-columns:1fr}}
+    @media(max-width:700px){.salary-kpis{grid-template-columns:repeat(2,1fr)}.salary-form-grid,.salary-policy-grid{grid-template-columns:1fr}}
 
 
     .employee-compare-wrap{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px}
@@ -947,16 +954,37 @@
             <label>基本工资
               <input id="salaryBase" type="number" step="0.01">
             </label>
-            <label>全勤奖
+            <label id="salaryAttendanceBonusField">全勤奖
               <input id="salaryAttendanceBonus" type="number" step="0.01">
             </label>
-            <label>净业绩目标
+            <label id="salaryTargetField">净业绩目标
               <input id="salaryTarget" type="number" step="0.01">
             </label>
-            <label>当前提成单价 / 每1000元
+            <label>销售 / 岗位绩效
+              <input id="salaryPerformanceBonus" type="number" step="0.01" value="0" readonly>
+            </label>
+            <div id="salaryAfterSalesFields" class="salary-policy-fields hidden">
+              <h4>售后个人绩效明细</h4>
+              <div class="muted">请按当月已确认的考核记录填写；各项会自动限制在制度规定的上限内。</div>
+              <div class="salary-policy-grid">
+                <label>进度反馈与跟进（最高200元）
+                  <input id="salaryAfterFollowUp" type="number" min="0" max="200" step="1" value="0">
+                </label>
+                <label>处理质量与记录（最高200元）
+                  <input id="salaryAfterQuality" type="number" min="0" max="200" step="1" value="0">
+                </label>
+                <label>流程改进与执行（最高100元）
+                  <input id="salaryAfterImprovement" type="number" min="0" max="100" step="1" value="0">
+                </label>
+                <label>可避免退款控制（最高300元）
+                  <input id="salaryAfterRefundControl" type="number" min="0" max="300" step="1" value="0">
+                </label>
+              </div>
+            </div>
+            <label id="salaryCommissionRateField">当前提成单价 / 每1000元
               <input id="salaryCommissionRate" type="number" step="0.01">
             </label>
-            <label>提成计数（1000元为1档）
+            <label id="salaryCommissionUnitsField">提成计数（1000元为1档）
               <input id="salaryCommissionUnits" type="number" step="1">
             </label>
             <label>提成金额
@@ -965,10 +993,10 @@
             <label>其他奖励 / 红包
               <input id="salaryReward" type="number" step="0.01" value="0">
             </label>
-            <label>补贴
+            <label>其他应付 / 补贴
               <input id="salaryAllowance" type="number" step="0.01" value="0">
             </label>
-            <label>绩效 / 其他扣款
+            <label>依法确认扣款
               <input id="salaryDeduction" type="number" step="0.01" value="0">
             </label>
             <label>人工调整（可正可负）
@@ -992,8 +1020,9 @@
             <div class="muted">最终应发工资</div>
             <div id="salaryPayable" class="salary-pay">¥0</div>
             <div class="salary-line"><span>基本工资</span><b id="salaryResultBase">¥0</b></div>
-            <div class="salary-line"><span>全勤奖</span><b id="salaryResultAttendance">¥0</b></div>
-            <div class="salary-line"><span>阶梯提成</span><b id="salaryResultCommission">¥0</b></div>
+            <div id="salaryResultAttendanceLine" class="salary-line"><span>全勤奖</span><b id="salaryResultAttendance">¥0</b></div>
+            <div class="salary-line"><span>销售 / 岗位绩效</span><b id="salaryResultPerformance">¥0</b></div>
+            <div class="salary-line"><span id="salaryResultCommissionLabel">阶梯提成</span><b id="salaryResultCommission">¥0</b></div>
             <div class="salary-line"><span>其他奖励</span><b id="salaryResultReward">¥0</b></div>
             <div class="salary-line"><span>补贴</span><b id="salaryResultAllowance">¥0</b></div>
             <div class="salary-line"><span>扣款</span><b id="salaryResultDeduction">-¥0</b></div>
@@ -1012,7 +1041,7 @@
         </div>
         <div style="overflow:auto">
           <table class="salary-history-table">
-            <thead><tr><th>月份</th><th>员工</th><th>岗位</th><th>净业绩</th><th>基本工资</th><th>全勤奖</th><th>提成</th><th>调整后应发</th><th>状态</th></tr></thead>
+            <thead><tr><th>月份</th><th>员工</th><th>岗位</th><th>净业绩</th><th>基本工资</th><th>岗位绩效</th><th>全勤奖</th><th>提成</th><th>调整后应发</th><th>状态</th></tr></thead>
             <tbody id="salaryHistoryTable"></tbody>
           </table>
         </div>
@@ -2880,6 +2909,63 @@ function salaryTemplateByKey(key){
   return salaryTemplatesCache.find(t=>t.template_key===key);
 }
 
+function salaryPolicyKind(template){
+  return window.SalaryPolicy?.resolvePolicyKind(template)||"legacy";
+}
+
+function salaryAfterSalesParts(){
+  return {
+    followUp:salaryNum("salaryAfterFollowUp"),
+    quality:salaryNum("salaryAfterQuality"),
+    improvement:salaryNum("salaryAfterImprovement"),
+    refundControl:salaryNum("salaryAfterRefundControl")
+  };
+}
+
+function configureSalaryPolicyFields(template){
+  const kind=salaryPolicyKind(template);
+  const isPolicy=kind!=="legacy";
+  const isAfterSales=kind==="day_after_sales";
+
+  $("salaryAfterSalesFields").classList.toggle("hidden",!isAfterSales);
+  $("salaryAttendanceBonusField").classList.toggle("hidden",isPolicy);
+  $("salaryTargetField").classList.toggle("hidden",isPolicy);
+  $("salaryCommissionRateField").classList.toggle("hidden",isPolicy);
+  $("salaryCommissionUnitsField").classList.toggle("hidden",isPolicy);
+  $("salaryResultAttendanceLine").classList.toggle("hidden",isPolicy);
+
+  $("salaryBase").readOnly=isPolicy;
+  $("salaryPerformanceBonus").readOnly=isPolicy;
+  $("salaryCommissionAmount").readOnly=isPolicy;
+  $("salaryResultCommissionLabel").textContent=isAfterSales
+    ? "销售提成（不适用）"
+    : kind==="day_pre_sales" ? "分段提成" : "阶梯提成";
+}
+
+function salaryPolicySnapshot(template){
+  const kind=salaryPolicyKind(template);
+  if(kind==="day_after_sales"){
+    const result=window.SalaryPolicy.calculateAfterSales(salaryAfterSalesParts());
+    return {
+      version:window.SalaryPolicy.POLICY_VERSION,
+      kind,
+      breakdown:result.breakdown,
+      performanceAmount:result.performanceAmount
+    };
+  }
+  if(kind==="day_pre_sales"){
+    const result=window.SalaryPolicy.calculatePreSales(salaryCurrentData?.metrics?.netPerformance||0);
+    return {
+      version:window.SalaryPolicy.POLICY_VERSION,
+      kind,
+      netPerformance:result.netPerformance,
+      performanceAmount:result.performanceAmount,
+      commissionAmount:result.commissionAmount
+    };
+  }
+  return {kind:"legacy"};
+}
+
 async function loadSalaryEmployeeOptions(){
   if(!employeesCache.length) await loadEmployees();
   const staff=employeesCache.filter(e=>e.role==="employee" && e.status==="active");
@@ -2912,32 +2998,63 @@ async function loadSalaryPage(){
 function applySalaryTemplateDefaults(template, metrics){
   if(!template) return;
 
+  const kind=salaryPolicyKind(template);
+  configureSalaryPolicyFields(template);
+
   $("salaryTemplateNote").className="salary-template-note"+(template.is_configured?"":" salary-warning");
-  $("salaryTemplateNote").textContent=template.is_configured
-    ? `${template.template_name}：系统按达到的最高提成档位自动填写提成单价，所有参数均可由管理员手动修改。`
-    : `${template.template_name}目前尚未配置固定工资规则。系统不会替你编造夜班标准，请管理员先在本次结算中手动填写，后续再固化为正式模板。`;
+  if(kind==="day_pre_sales"){
+    $("salaryTemplateNote").textContent="白班售前客服：底薪3000元；销售绩效按净销售额档位计算；超过2万元的部分按2%、超过4万元的部分按3%分段累计。";
+  }else if(kind==="day_after_sales"){
+    $("salaryTemplateNote").textContent="白班售后客服：固定工资4000元；岗位绩效按跟进、质量、改进及可避免退款控制四项人工复核，最高800元；退款金额不会自动转成扣款。";
+  }else{
+    $("salaryTemplateNote").textContent=template.is_configured
+      ? `${template.template_name}：沿用原工资模板计算，参数可由管理员在本次结算中修改。`
+      : `${template.template_name}目前尚未配置固定工资规则。系统不会替你编造工资标准，请管理员先在本次结算中手动填写。`;
+  }
 
   $("salaryBase").value=Number(template.base_salary||0);
   $("salaryTarget").value=Number(template.net_target||0);
+
+  ["salaryAfterFollowUp","salaryAfterQuality","salaryAfterImprovement","salaryAfterRefundControl"]
+    .forEach(id=>$(id).value=0);
+  $("salaryPerformanceBonus").value=0;
 
   // 全勤：只根据系统已有考勤记录给建议值，管理员可改。
   const hasAttendanceIssue=(metrics.late||0)+(metrics.leave||0)+(metrics.absent||0)>0;
   $("salaryAttendanceBonus").value=hasAttendanceIssue ? 0 : Number(template.full_attendance_bonus||0);
 
-  let rate=0;
-  if(metrics.netPerformance>Number(template.tier2_threshold||0)){
-    rate=Number(template.tier2_rate||0);
-  }else if(metrics.netPerformance>Number(template.tier1_threshold||0)){
-    rate=Number(template.tier1_rate||0);
-  }
-  $("salaryCommissionRate").value=rate;
+  if(kind==="day_pre_sales"){
+    const result=window.SalaryPolicy.calculatePreSales(metrics.netPerformance);
+    $("salaryBase").value=result.baseSalary;
+    $("salaryAttendanceBonus").value=0;
+    $("salaryTarget").value=20000;
+    $("salaryPerformanceBonus").value=result.performanceAmount;
+    $("salaryCommissionRate").value=0;
+    $("salaryCommissionUnits").value=0;
+    $("salaryCommissionAmount").value=result.commissionAmount.toFixed(2);
+  }else if(kind==="day_after_sales"){
+    $("salaryBase").value=4000;
+    $("salaryAttendanceBonus").value=0;
+    $("salaryTarget").value=0;
+    $("salaryCommissionRate").value=0;
+    $("salaryCommissionUnits").value=0;
+    $("salaryCommissionAmount").value=0;
+  }else{
+    let rate=0;
+    if(metrics.netPerformance>Number(template.tier2_threshold||0)){
+      rate=Number(template.tier2_rate||0);
+    }else if(metrics.netPerformance>Number(template.tier1_threshold||0)){
+      rate=Number(template.tier1_rate||0);
+    }
+    $("salaryCommissionRate").value=rate;
 
-  const baseThreshold=Number(template.tier1_threshold||0);
-  const units=metrics.netPerformance>baseThreshold
-    ? Math.floor((metrics.netPerformance-baseThreshold)/1000)
-    : 0;
-  $("salaryCommissionUnits").value=Math.max(0,units);
-  $("salaryCommissionAmount").value=Math.max(0,units*rate);
+    const baseThreshold=Number(template.tier1_threshold||0);
+    const units=metrics.netPerformance>baseThreshold
+      ? Math.floor((metrics.netPerformance-baseThreshold)/1000)
+      : 0;
+    $("salaryCommissionUnits").value=Math.max(0,units);
+    $("salaryCommissionAmount").value=Math.max(0,units*rate);
+  }
 
   $("salaryReward").value=0;
   $("salaryAllowance").value=0;
@@ -2998,6 +3115,11 @@ async function recalcSalarySettlement(resetTemplate=false){
 }
 
 function updateSalaryCommissionFromRate(){
+  const template=salaryTemplateByKey($("salaryTemplate").value);
+  if(salaryPolicyKind(template)!=="legacy"){
+    updateSalaryPayable();
+    return;
+  }
   const units=Math.max(0,Math.floor(salaryNum("salaryCommissionUnits")));
   const rate=Math.max(0,salaryNum("salaryCommissionRate"));
   $("salaryCommissionUnits").value=units;
@@ -3005,20 +3127,41 @@ function updateSalaryCommissionFromRate(){
   updateSalaryPayable();
 }
 
-function updateSalaryPayable(){
+function updateSalaryPayable(skipPolicyCalculation=false){
+  const template=salaryTemplateByKey($("salaryTemplate").value);
+  const kind=salaryPolicyKind(template);
+
+  if(skipPolicyCalculation!==true && kind==="day_pre_sales"){
+    const result=window.SalaryPolicy.calculatePreSales(salaryCurrentData?.metrics?.netPerformance||0);
+    $("salaryBase").value=result.baseSalary;
+    $("salaryPerformanceBonus").value=result.performanceAmount;
+    $("salaryCommissionAmount").value=result.commissionAmount.toFixed(2);
+  }else if(skipPolicyCalculation!==true && kind==="day_after_sales"){
+    const result=window.SalaryPolicy.calculateAfterSales(salaryAfterSalesParts());
+    $("salaryBase").value=result.baseSalary;
+    $("salaryPerformanceBonus").value=result.performanceAmount;
+    $("salaryCommissionAmount").value=0;
+    $("salaryAfterFollowUp").value=result.breakdown.followUp;
+    $("salaryAfterQuality").value=result.breakdown.quality;
+    $("salaryAfterImprovement").value=result.breakdown.improvement;
+    $("salaryAfterRefundControl").value=result.breakdown.refundControl;
+  }
+
   const base=salaryNum("salaryBase");
   const attendance=salaryNum("salaryAttendanceBonus");
+  const performance=salaryNum("salaryPerformanceBonus");
   const commission=salaryNum("salaryCommissionAmount");
   const reward=salaryNum("salaryReward");
   const allowance=salaryNum("salaryAllowance");
   const deduction=salaryNum("salaryDeduction");
   const adjustment=salaryNum("salaryAdjustment");
 
-  const payable=base+attendance+commission+reward+allowance-deduction+adjustment;
+  const payable=base+attendance+performance+commission+reward+allowance-deduction+adjustment;
 
   $("salaryPayable").textContent=salaryMoney(payable);
   $("salaryResultBase").textContent=salaryMoney(base);
   $("salaryResultAttendance").textContent=salaryMoney(attendance);
+  $("salaryResultPerformance").textContent=salaryMoney(performance);
   $("salaryResultCommission").textContent=salaryMoney(commission);
   $("salaryResultReward").textContent=salaryMoney(reward);
   $("salaryResultAllowance").textContent=salaryMoney(allowance);
@@ -3050,6 +3193,7 @@ async function saveSalarySettlement(){
     net_performance:salaryCurrentData.metrics.netPerformance,
     base_salary:salaryNum("salaryBase"),
     attendance_bonus:salaryNum("salaryAttendanceBonus"),
+    performance_amount:salaryNum("salaryPerformanceBonus"),
     net_target:salaryNum("salaryTarget"),
     commission_rate:salaryNum("salaryCommissionRate"),
     commission_units:Math.max(0,Math.floor(salaryNum("salaryCommissionUnits"))),
@@ -3059,6 +3203,7 @@ async function saveSalarySettlement(){
     deduction_amount:salaryNum("salaryDeduction"),
     adjustment_amount:salaryNum("salaryAdjustment"),
     payable_salary:payable,
+    policy_snapshot:salaryPolicySnapshot(template),
     notes:$("salaryNotes").value.trim(),
     status:"final",
     created_by:currentEmployee.id,
@@ -3086,7 +3231,11 @@ async function saveSalarySettlement(){
     showMsg($("salaryMsg"),"工资结算已保存。",true);
     await loadSalaryHistory();
   }catch(e){
-    showMsg($("salaryMsg"),"保存失败："+(e?.message||e),false);
+    const message=e?.message||String(e);
+    const migrationHint=/performance_amount|policy_snapshot|policy_type/i.test(message)
+      ? "请先在 Supabase SQL Editor 执行本版本附带的工资制度迁移文件。"
+      : message;
+    showMsg($("salaryMsg"),"保存失败："+migrationHint,false);
   }finally{
     $("salarySaveBtn").disabled=false;
     $("salarySaveBtn").textContent="保存本月工资结算";
@@ -3116,8 +3265,13 @@ async function loadSavedSalarySettlement(){
   if(salaryTemplateByKey(data.template_key)) $("salaryTemplate").value=data.template_key;
   await recalcSalarySettlement(false);
 
+  const template=salaryTemplateByKey($("salaryTemplate").value);
+  const kind=salaryPolicyKind(template);
+  configureSalaryPolicyFields(template);
+
   $("salaryBase").value=data.base_salary;
   $("salaryAttendanceBonus").value=data.attendance_bonus;
+  $("salaryPerformanceBonus").value=data.performance_amount||0;
   $("salaryTarget").value=data.net_target;
   $("salaryCommissionRate").value=data.commission_rate;
   $("salaryCommissionUnits").value=data.commission_units;
@@ -3127,7 +3281,15 @@ async function loadSavedSalarySettlement(){
   $("salaryDeduction").value=data.deduction_amount;
   $("salaryAdjustment").value=data.adjustment_amount;
   $("salaryNotes").value=data.notes||"";
-  updateSalaryPayable();
+  if(kind==="day_after_sales"){
+    const breakdown=data.policy_snapshot?.breakdown||{};
+    $("salaryAfterFollowUp").value=breakdown.followUp||0;
+    $("salaryAfterQuality").value=breakdown.quality||0;
+    $("salaryAfterImprovement").value=breakdown.improvement||0;
+    $("salaryAfterRefundControl").value=breakdown.refundControl||0;
+  }
+  // 已保存结算是历史快照，读取时不按当前制度重新计算。
+  updateSalaryPayable(true);
   showMsg($("salaryMsg"),"已读取保存的工资结算。",true);
 }
 
@@ -3150,12 +3312,13 @@ async function loadSalaryHistory(){
       <td>${r.template_name||r.template_key}</td>
       <td><b>${salaryMoney(r.net_performance)}</b></td>
       <td>${salaryMoney(r.base_salary)}</td>
+      <td>${salaryMoney(r.performance_amount)}</td>
       <td>${salaryMoney(r.attendance_bonus)}</td>
       <td>${salaryMoney(r.commission_amount)}</td>
       <td><b>${salaryMoney(r.payable_salary)}</b></td>
       <td><span class="salary-status">已结算</span></td>
     </tr>
-  `).join(""):`<tr><td colspan="9" class="muted">暂无工资结算记录</td></tr>`;
+  `).join(""):`<tr><td colspan="10" class="muted">暂无工资结算记录</td></tr>`;
 }
 
 
@@ -3981,7 +4144,8 @@ $("salarySaveBtn").addEventListener("click",saveSalarySettlement);
 $("salaryLoadSavedBtn").addEventListener("click",loadSavedSalarySettlement);
 $("salaryRefreshHistoryBtn").addEventListener("click",loadSalaryHistory);
 
-["salaryBase","salaryAttendanceBonus","salaryTarget","salaryCommissionAmount","salaryReward","salaryAllowance","salaryDeduction","salaryAdjustment"]
+["salaryBase","salaryAttendanceBonus","salaryTarget","salaryPerformanceBonus","salaryCommissionAmount","salaryReward","salaryAllowance","salaryDeduction","salaryAdjustment",
+ "salaryAfterFollowUp","salaryAfterQuality","salaryAfterImprovement","salaryAfterRefundControl"]
   .forEach(id=>$(id).addEventListener("input",updateSalaryPayable));
 ["salaryCommissionRate","salaryCommissionUnits"]
   .forEach(id=>$(id).addEventListener("input",updateSalaryCommissionFromRate));
