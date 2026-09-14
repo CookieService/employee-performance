@@ -1,0 +1,2 @@
+[functions.manage-employee]
+verify_jwt = true
